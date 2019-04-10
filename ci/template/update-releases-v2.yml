@@ -1,4 +1,219 @@
 #@ load("@ytt:data", "data")
+#@ load("@ytt:template", "template")
+
+#@ def job_names(releases=[]):
+#@ for/end release in releases:
+- #@ "update" + release.name
+#@ end
+
+#@ def resources(releases=[], type=""):
+#@ for/end release in releases:
+- name: #@ release.name + "-release"
+  type: #@ type
+  source:
+  #@ if type=="bosh-io-release":
+    repository: #@ release.repository
+  #@ elif type=="gcs-resource":
+    bucket: cf-deployment-compiled-releases
+    json_key: ((concourse_gcp_service_account_json))
+    regexp: #@ release.name + "-[^-]+-ubuntu-trusty-[^-]+-(\d+)-(\d+)-(\d+).*\.tgz"
+  #@ elif type=="bosh-io-stemcell":
+    name: #@ "bosh-google-kvm-" + release.name + "-go_agent"
+  #@ end
+#@ end
+
+#@ def upload_stemcell(releases=[]):
+- name: upload-stemcell
+  public: true
+  serial_groups:
+  - stemcell
+  build_logs_to_retain: 100
+  plan:
+  - aggregate:
+    - get: runtime-ci
+    - get: relint-envs
+    - get: cf-deployment-develop
+    - get: cf-deployment-concourse-tasks
+  #@ for/end release in releases:
+    - get: #@ release.name + "-release"
+      params:
+        tarball: false
+      trigger: true
+    - get: stemcell
+      params:
+        tarball: false
+  - task: upload-stemcell
+    file: cf-deployment-concourse-tasks/bosh-upload-stemcells/task.yml
+    input_mapping:
+      bbl-state: relint-envs
+      cf-deployment: cf-deployment-develop
+    params:
+      BBL_STATE_DIR: environments/test/greengrass/bbl-state
+      INFRASTRUCTURE: google
+#@ end
+
+#@ def update_release_jobs(releases=[], upload_stemcell=False):
+#@ for/end release in releases:
+- name: #@ "update-" + release.name
+  #@ if upload_stemcell:
+  serial: true
+  #@ else:
+  serial_groups:
+  - stemcell
+  - #@ "update-" + release.name
+  #@ end
+  public: true
+  build_logs_to_retain: 100
+  plan:
+  - aggregate:
+    - get: runtime-ci
+    - get: cf-deployment-develop
+    - get: cf-deployment-concourse-tasks
+    - get: relint-envs
+    - get: #@ release.name + "-release"
+      trigger: true
+      params:
+        tarball: false
+      passed: [ upload-stemcell ]
+    - get: stemcell
+      params:
+        tarball: false
+      passed:
+      #@ if upload_stemcell:
+      - update-stemcell-and-recompile-releases
+      #@ else:
+      - upload-stemcell
+      #@ end
+  - task: #@ "update-release-" + release.name
+    file: runtime-ci/tasks/update-single-manifest-release/task.yml
+    input_mapping:
+      release: #@ release.name + "-release"
+      deployment-configuration: cf-deployment-develop
+    params:
+      RELEASE_NAME: #@ release.name
+  #@ if/end upload_stemcell:
+  - task: bosh-upload-stemcell
+    file: cf-deployment-concourse-tasks/bosh-upload-stemcells/task.yml
+    input_mapping:
+      bbl-state: relint-envs
+      cf-deployment: cf-deployment-develop
+      ops-files: cf-deployment-develop
+    params:
+      BBL_STATE_DIR: environments/test/greengrass/bbl-state
+      INFRASTRUCTURE: google
+      OPS_FILES: |
+        operations/windows2012R2-cell.yml
+        operations/windows2016-cell.yml
+        operations/windows1803-cell.yml
+        operations/windows2019-cell.yml
+  #@ if release.name.count("buildpack")==0:
+  - task: bosh-dry-run
+    file: runtime-ci/tasks/bosh-dry-run-with-ops/task.yml
+    input_mapping:
+      bbl-state: relint-envs
+      cf-deployment: updated-deployment-manifest
+      ops-files: cf-deployment-develop
+      vars-files: relint-envs
+    params:
+      BBL_STATE_DIR: environments/test/greengrass/bbl-state
+      DEPLOYMENT_NAME_SUFFIX: #@ release.name
+      SYSTEM_DOMAIN: greengrass.cf-app.com
+      #@ if/end hasattr(release, "varsFiles"):
+      VARS_FILES: #@ release.varsFiles
+  - task: bosh-delete-deployment
+    file: cf-deployment-concourse-tasks/bosh-delete-deployment/task.yml
+    input_mapping:
+      bbl-state: relint-envs
+    params:
+      BBL_STATE_DIR: environments/test/greengrass/bbl-state
+      DEPLOYMENT_NAME: #@ "cf-dry-run-" + release.name
+  #@ end
+  - task: compile-release
+    file: runtime-ci/tasks/compile-release-from-manifest/task.yml
+    input_mapping:
+      bbl-state: relint-envs
+      manifest: updated-deployment-manifest
+    params:
+      BBL_STATE_DIR: environments/test/greengrass/bbl-state
+      RELEASE_NAME: #@ release.name
+  - task: #@ "update-additional-ops-files-" + release.name
+    file: runtime-ci/tasks/update-single-opsfile-release/task.yml
+    input_mapping:
+      release: #@ release.name + "-release"
+      original-ops-file: cf-deployment-develop
+    params:
+      RELEASE_NAME: #@ release.name
+  - task: update-compiled-release-ops
+    file: runtime-ci/tasks/update-single-compiled-release/task.yml
+    input_mapping:
+      original-compiled-releases-ops-file: cf-deployment-develop
+      release: #@ release.name + "-release"
+      compiled-release-tarball: exported-release
+      current-commit-message: commit-message
+    params:
+      RELEASE_NAME: #@ release.name
+      ORIGINAL_OPS_FILE_PATH: operations/use-compiled-releases.yml
+      UPDATED_OPS_FILE_PATH: operations/use-compiled-releases.yml
+  - task: combine-inputs
+    file: runtime-ci/tasks/combine-inputs/task.yml
+    input_mapping:
+      first-input: updated-compiled-releases-ops-file
+      second-input: updated-ops-file
+  - put: #@ release.name + "-release-gcs"
+    params:
+      file: exported-release/*.tgz
+      predefined_acl: publicRead
+  - task: commit-generated-manifest-and-ops
+    file: runtime-ci/tasks/commit-generated-manifest/task.yml
+    input_mapping:
+      repo: cf-deployment-develop
+      ops-file: combined-inputs
+      manifest: updated-deployment-manifest
+    params:
+      MANIFEST_NAME: cf-deployment.yml
+      MANIFEST_DESTINATION: cf-deployment.yml
+      COMMIT_ALL_OPS_FILES: true
+  - put: cf-deployment-develop
+    params:
+      rebase: true
+      repository: updated-repo
+#@ end
+
+#@ def update_stemcell_jobs(stemcells=[]):
+#@ for/end stemcell in stemcells:
+- name: #@ "update-" + stemcell.name + "-stemcell"
+  public: true
+  build_logs_to_retain: 100
+  plan:
+  - aggregate:
+    - get: runtime-ci
+    - get: cf-deployment-develop
+    - get: #@ stemcell.name + "-stemcell"
+      trigger: true
+      params:
+        tarball: false
+  - task: update-windows-stemcell-ops
+    file: runtime-ci/tasks/update-windows-stemcell-ops/task.yml
+    input_mapping:
+      ops-files: cf-deployment-develop
+      windows-stemcell: #@ stemcell.name + "-stemcell"
+    params:
+      ORIGINAL_WINDOWS_OPS_FILE_PATH: #@ "{}/{}".format(stemcell.opsFileDir, stemcell.opsFile)
+      UPDATED_WINDOWS_OPS_FILE_PATH: #@ stemcell.opsFile
+  - task: commit-generated-manifest-and-ops
+    file: runtime-ci/tasks/commit-generated-manifest/task.yml
+    input_mapping:
+      repo: cf-deployment-develop
+      ops-file: updated-stemcell-ops-file
+      manifest: cf-deployment-develop
+    params:
+      OPS_FILE_NAME: #@ stemcell.opsFile
+      OPS_FILE_DESTINATION: #@ "{}/{}".format(stemcell.opsFileDir, stemcell.opsFile)
+  - put: cf-deployment-develop
+    params:
+      rebase: true
+      repository: updated-repo
+#@ end
 
 ---
 groups:
@@ -6,19 +221,13 @@ groups:
   jobs:
   - update-stemcell-and-recompile-releases
   - upload-stemcell
-  #@ for r in data.values.baseReleases:
-  - #@ "update-" + r.name
-  #@ end
+  - #@ template.replace(job_names(data.values.baseReleases))
 - name: update-ops-releases
   jobs:
-  #@ for r in data.values.opsReleases:
-  - #@ "update-" + r.name
-  #@ end
+  - #@ template.replace(job_names(data.values.opsReleases))
 - name: update-windows-stemcells-and-releases
   jobs:
-  #@ for s in data.values.windowsVersSupported:
-  - #@ "update-" + s.name + "-stemcell"
-  #@ end
+  - #@ template.replace(job_names(data.values.windowsVersSupported))
   - update-windows-2016-offline-releases
 
 - name: infrastructure
@@ -69,32 +278,10 @@ resources:
     owner: cloudfoundry-incubator
     repository: windows2016fs-release
     access_token: ((release_integration_download_bot_access_token))
-#@ for r in data.values.baseReleases:
-- name: #@ r.name + "-release"
-  type: bosh-io-release
-  source:
-    repository: #@ r.repository
-#@ end
-#@ for r in data.values.opsReleases:
-- name: #@ r.name + "-release"
-  type: bosh-io-release
-  source:
-    repository: #@ r.repository
-#@ end
-#@ for r in data.values.baseReleases:
-- name: #@ r.name + "-release-gcs"
-  type: gcs-resource
-  source:
-    bucket: cf-deployment-compiled-releases
-    json_key: ((concourse_gcp_service_account_json))
-    regexp: #@ r.name + "-[^-]+-ubuntu-trusty-[^-]+-(\d+)-(\d+)-(\d+).*\.tgz"
-#@ end
-#@ for s in data.values.windowsVersSupported:
-- name: #@ s.name + "-stemcell"
-  type: bosh-io-stemcell
-  source:
-    name: #@ "bosh-google-kvm-" + s.name + "-go_agent"
-#@ end
+- #@ template.replace(resources(data.values.baseReleases, "bosh-io-release"))
+- #@ template.replace(resources(data.values.opsReleases, "bosh-io-release"))
+- #@ template.replace(resources(data.values.baseReleases, "gcs-resource"))
+- #@ template.replace(resources(data.values.windowsVersSupported, "bosh-io-stemcell"))
 - name: daily
   type: time
   source:
@@ -103,252 +290,17 @@ resources:
     interval: 24h
 
 jobs:
-- name: upload-stemcell
-  public: true
-  serial_groups:
-  - stemcell
-  build_logs_to_retain: 100
-  plan:
-  - aggregate:
-    - get: runtime-ci
-    - get: relint-envs
-    - get: cf-deployment-develop
-    - get: cf-deployment-concourse-tasks
-    #@ for r in data.values.baseReleases:
-    - get: #@ r.name + "-release"
-      params:
-        tarball: false
-      trigger: true
-    #@ end
-    - get: stemcell
-      params:
-        tarball: false
-  - task: upload-stemcell
-    file: cf-deployment-concourse-tasks/bosh-upload-stemcells/task.yml
-    input_mapping:
-      bbl-state: relint-envs
-      cf-deployment: cf-deployment-develop
-    params:
-      BBL_STATE_DIR: environments/test/greengrass/bbl-state
-      INFRASTRUCTURE: google
-
-#@ for r in data.values.baseReleases:
-- name: #@ "update-" + r.name
-  serial_groups:
-  - stemcell
-  - #@ "update-" + r.name
-  public: true
-  build_logs_to_retain: 100
-  plan:
-  - aggregate:
-    - get: runtime-ci
-    - get: cf-deployment-develop
-    - get: cf-deployment-concourse-tasks
-    - get: relint-envs
-    - get: #@ r.name + "-release"
-      trigger: true
-      params:
-        tarball: false
-      passed: [ upload-stemcell ]
-    - get: stemcell
-      params:
-        tarball: false
-      passed: [ upload-stemcell ]
-  - task: #@ "update-release-" + r.name
-    file: runtime-ci/tasks/update-single-manifest-release/task.yml
-    input_mapping:
-      release: #@ r.name + "-release"
-      deployment-configuration: cf-deployment-develop
-    params:
-      RELEASE_NAME: #@ r.name
-  #@ if r.name.count("buildpack")==0:
-  - task: bosh-dry-run
-    file: runtime-ci/tasks/bosh-dry-run-with-ops/task.yml
-    input_mapping:
-      bbl-state: relint-envs
-      cf-deployment: updated-deployment-manifest
-      ops-files: cf-deployment-develop
-      #@ if hasattr(r, "varsFilesInput"):
-      vars-files: #@ r.varsFilesInput
-      #@ else:
-      vars-files: relint-envs
-      #@ end
-    params:
-      BBL_STATE_DIR: environments/test/greengrass/bbl-state
-      DEPLOYMENT_NAME_SUFFIX: #@ r.name
-      SYSTEM_DOMAIN: greengrass.cf-app.com
-  - task: bosh-delete-deployment
-    file: cf-deployment-concourse-tasks/bosh-delete-deployment/task.yml
-    input_mapping:
-      bbl-state: relint-envs
-    params:
-      BBL_STATE_DIR: environments/test/greengrass/bbl-state
-      DEPLOYMENT_NAME: #@ "cf-dry-run-" + r.name
-  #@ end
-  - task: compile-release
-    file: runtime-ci/tasks/compile-release-from-manifest/task.yml
-    input_mapping:
-      bbl-state: relint-envs
-      manifest: updated-deployment-manifest
-    params:
-      BBL_STATE_DIR: environments/test/greengrass/bbl-state
-      RELEASE_NAME: #@ r.name
-  - task: #@ "update-additional-ops-files-" + r.name
-    file: runtime-ci/tasks/update-single-opsfile-release/task.yml
-    input_mapping:
-      release: #@ r.name + "-release"
-      original-ops-file: cf-deployment-develop
-    params:
-      RELEASE_NAME: #@ r.name
-  - task: update-compiled-release-ops
-    file: runtime-ci/tasks/update-single-compiled-release/task.yml
-    input_mapping:
-      original-compiled-releases-ops-file: cf-deployment-develop
-      release: #@ r.name + "-release"
-      compiled-release-tarball: exported-release
-      current-commit-message: commit-message
-    params:
-      RELEASE_NAME: #@ r.name
-      ORIGINAL_OPS_FILE_PATH: operations/use-compiled-releases.yml
-      UPDATED_OPS_FILE_PATH: operations/use-compiled-releases.yml
-  - task: combine-inputs
-    file: runtime-ci/tasks/combine-inputs/task.yml
-    input_mapping:
-      first-input: updated-compiled-releases-ops-file
-      second-input: updated-ops-file
-  - put: #@ r.name + "-release-gcs"
-    params:
-      file: exported-release/*.tgz
-      predefined_acl: publicRead
-  - task: commit-generated-manifest-and-ops
-    file: runtime-ci/tasks/commit-generated-manifest/task.yml
-    input_mapping:
-      repo: cf-deployment-develop
-      ops-file: combined-inputs
-      manifest: updated-deployment-manifest
-    params:
-      MANIFEST_NAME: cf-deployment.yml
-      MANIFEST_DESTINATION: cf-deployment.yml
-      COMMIT_ALL_OPS_FILES: true
-  - put: cf-deployment-develop
-    params:
-      rebase: true
-      repository: updated-repo
-#@ end
-
-#@ for r in data.values.opsReleases:
-- name: #@ "update-" + r.name
-  serial: true
-  public: true
-  build_logs_to_retain: 100
-  plan:
-  - aggregate:
-    - get: runtime-ci
-    - get: cf-deployment-develop
-    - get: cf-deployment-concourse-tasks
-    - get: relint-envs
-    - get: #@ r.name + "-release"
-      trigger: true
-      params:
-        tarball: false
-    - get: stemcell
-      params:
-        tarball: false
-      passed: [ update-stemcell-and-recompile-releases ]
-  - task: #@ "update-release-" + r.name
-    file: runtime-ci/tasks/update-single-opsfile-release/task.yml
-    input_mapping:
-      release: #@ r.name + "-release"
-      original-ops-file: cf-deployment-develop
-    params:
-      RELEASE_NAME: #@ r.name
-  - task: bosh-upload-stemcell
-    file: cf-deployment-concourse-tasks/bosh-upload-stemcells/task.yml
-    input_mapping:
-      bbl-state: relint-envs
-      cf-deployment: cf-deployment-develop
-      ops-files: cf-deployment-develop
-    params:
-      BBL_STATE_DIR: environments/test/greengrass/bbl-state
-      INFRASTRUCTURE: google
-      OPS_FILES: |
-        operations/windows2012R2-cell.yml
-        operations/windows2016-cell.yml
-        operations/windows1803-cell.yml
-        operations/windows2019-cell.yml
-  - task: #@ "bosh-dry-run-" + r.name
-    file: runtime-ci/tasks/bosh-dry-run-with-all-ops/task.yml
-    input_mapping:
-      bbl-state: relint-envs
-      cf-deployment: cf-deployment-develop
-      ops-files: updated-ops-file
-      #@ if hasattr(r, "varsFilesInput"):
-      vars-files: #@ r.varsFilesInput
-      #@ else:
-      vars-files: relint-envs
-      #@ end
-    params:
-      BBL_STATE_DIR: environments/test/greengrass/bbl-state
-      DEPLOYMENT_NAME_SUFFIX: #@ r.name
-      SYSTEM_DOMAIN: greengrass.cf-app.com
-      #@ if/end hasattr(r, "varsFiles"):
-      VARS_FILES: #@ r.varsFiles
-  - task: #@ "commit-generated-manifest-and-ops-" + r.name
-    file: runtime-ci/tasks/commit-generated-manifest/task.yml
-    input_mapping:
-      repo: cf-deployment-develop
-      ops-file: updated-ops-file
-      manifest: cf-deployment-develop
-    params:
-      COMMIT_ALL_OPS_FILES: true
-  - put: cf-deployment-develop
-    params:
-      rebase: true
-      repository: updated-repo
-#@ end
-
-#@ for s in data.values.windowsVersSupported:
-- name: #@ "update-" + s.name + "-stemcell"
-  public: true
-  build_logs_to_retain: 100
-  plan:
-  - aggregate:
-    - get: runtime-ci
-    - get: cf-deployment-develop
-    - get: #@ s.name + "-stemcell"
-      trigger: true
-      params:
-        tarball: false
-  - task: update-windows-stemcell-ops
-    file: runtime-ci/tasks/update-windows-stemcell-ops/task.yml
-    input_mapping:
-      ops-files: cf-deployment-develop
-      windows-stemcell: #@ s.name + "-stemcell"
-    params:
-      ORIGINAL_WINDOWS_OPS_FILE_PATH: #@ "{}/{}".format(s.opsFileDir, s.opsFile)
-      UPDATED_WINDOWS_OPS_FILE_PATH: #@ s.opsFile
-  - task: commit-generated-manifest-and-ops
-    file: runtime-ci/tasks/commit-generated-manifest/task.yml
-    input_mapping:
-      repo: cf-deployment-develop
-      ops-file: updated-stemcell-ops-file
-      manifest: cf-deployment-develop
-    params:
-      OPS_FILE_NAME: #@ s.opsFile
-      OPS_FILE_DESTINATION: #@ "{}/{}".format(s.opsFileDir, s.opsFile)
-  - put: cf-deployment-develop
-    params:
-      rebase: true
-      repository: updated-repo
-#@ end
+- #@ template.replace(upload_stemcell(data.values.baseReleases))
+- #@ template.replace(update_release_jobs(data.values.baseReleases))
+- #@ template.replace(update_release_jobs(data.values.opsReleases, True))
+- #@ template.replace(update_stemcell_jobs(data.values.windowsVersSupported))
 
 - name: update-stemcell-and-recompile-releases
   public: true
   serial_groups:
   - stemcell
-  #@ for r in data.values.baseReleases:
-  - #@ "update-" + r.name
-  #@ end
+  #@ for/end release in data.values.baseReleases:
+  - #@ "update-" + release.name
   build_logs_to_retain: 100
   plan:
   - aggregate:
@@ -356,11 +308,10 @@ jobs:
     - get: relint-envs
     - get: cf-deployment-develop
     - get: cf-deployment-concourse-tasks
-    #@ for s in data.values.baseReleases:
-    - get: #@ s.name + "-release"
+    #@ for/end release in data.values.baseReleases:
+    - get: #@ release.name + "-release"
       params:
         tarball: false
-    #@ end
     - get: stemcell
       trigger: true
       params:
@@ -378,46 +329,43 @@ jobs:
       BBL_STATE_DIR: environments/test/greengrass/bbl-state
       INFRASTRUCTURE: google
   - aggregate:
-    #@ for s in data.values.baseReleases:
-    - task: #@ "compile-release-" + s.name
+    #@ for/end release in data.values.baseReleases:
+    - task: #@ "compile-release-" + release.name
       file: runtime-ci/tasks/compile-release-from-manifest/task.yml
       input_mapping:
         bbl-state: relint-envs
         manifest: updated-deployment-manifest
       output_mapping:
-        exported-release: #@ "exported-release-" + s.name
+        exported-release: #@ "exported-release-" + release.name
       params:
         BBL_STATE_DIR: environments/test/greengrass/bbl-state
-        RELEASE_NAME: #@ s.name
-    #@ end
-  #@ for s in data.values.baseReleases:
-  - task: #@ "update-compiled-releases-ops-" + s.name
+        RELEASE_NAME: #@ release.name
+  #@ for/end release in data.values.baseReleases:
+  - task: #@ "update-compiled-releases-ops-" + release.name
     file: runtime-ci/tasks/update-single-compiled-release/task.yml
     input_mapping:
-      #@ if hasattr(s, "bootstrap"):
+      #@ if hasattr(release, "bootstrap"):
       original-compiled-releases-ops-file: cf-deployment-develop
       #@ else:
       original-compiled-releases-ops-file: updated-compiled-releases-ops-file
       #@ end
-      release: #@ s.name + "-release"
-      compiled-release-tarball: #@ "exported-release-" + s.name
+      release: #@ release.name + "-release"
+      compiled-release-tarball: #@ "exported-release-" + release.name
       current-commit-message: commit-message
     params:
-      RELEASE_NAME: #@ s.name
-      #@ if hasattr(s, "bootstrap"):
+      RELEASE_NAME: #@ release.name
+      #@ if hasattr(release, "bootstrap"):
       ORIGINAL_OPS_FILE_PATH: operations/use-compiled-releases.yml
       #@ else:
       ORIGINAL_OPS_FILE_PATH: use-compiled-releases.yml
       #@ end
       UPDATED_OPS_FILE_PATH: use-compiled-releases.yml
-  #@ end
   - aggregate:
-    #@ for s in data.values.baseReleases:
-    - put: #@ s.name + "-release-gcs"
+    #@ for/end release in data.values.baseReleases:
+    - put: #@ release.name + "-release-gcs"
       params:
-        file: #@ "exported-release-" + s.name + "/*.tgz"
+        file: #@ "exported-release-" + release.name + "/*.tgz"
         predefined_acl: publicRead
-    #@ end
   - task: commit-generated-manifest-and-ops
     file: runtime-ci/tasks/commit-generated-manifest/task.yml
     input_mapping:
@@ -558,22 +506,3 @@ jobs:
         bbl-state: relint-envs
       params:
         BBL_STATE_DIR: environments/test/greengrass/bbl-state
-    - task: upload-bosh-dns-release
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: relintdockerhubpushbot/cf-deployment-concourse-tasks
-            tag: latest
-        inputs:
-        - name: relint-envs
-        run:
-          path: /bin/bash
-          args:
-          - -c
-          - |
-            #!/bin/bash
-            cd relint-envs/environments/test/greengrass/bbl-state
-            eval "$(bbl print-env)"
-            bosh upload-release $(bosh int <(bosh runtime-config --name=dns) --path /releases/name=bosh-dns/url)

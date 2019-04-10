@@ -2,6 +2,15 @@
 ## GENERATED FILE. DO NOT EDIT
 ## ======================================================================
 
+---
+## ======================================================================
+##   __ _ _ __ ___  _   _ _ __  ___
+##  / _` | '__/ _ \| | | | '_ \/ __|
+## | (_| | | | (_) | |_| | |_) \__ \
+##  \__, |_|  \___/ \__,_| .__/|___/
+##  |___/                |_|
+## ======================================================================
+
 groups:
 - name: update-base-stemcells-and-releases
   jobs:
@@ -59,23 +68,41 @@ groups:
   - update-windows2016fs
   - update-node-exporter
   - update-leadership-election
-  - update-metric-store
 - name: update-windows-stemcells-and-releases
   jobs:
   - update-windows2012R2-stemcell
   - update-windows2016-stemcell
   - update-windows1803-stemcell
   - update-windows-2016-offline-releases
+
 - name: infrastructure
   jobs:
   - setup-infrastructure-compilation
   - destroy-infrastructure-compilation
   - run-bosh-cleanup-compilation
+
+## ======================================================================
+##                                           _
+##  _ __ ___  ___  ___  _   _ _ __ ___ ___  | |_ _   _ _ __   ___  ___
+## | '__/ _ \/ __|/ _ \| | | | '__/ __/ _ \ | __| | | | '_ \ / _ \/ __|
+## | | |  __/\__ \ (_) | |_| | | | (_|  __/ | |_| |_| | |_) |  __/\__ \
+## |_|  \___||___/\___/ \__,_|_|  \___\___|  \__|\__, | .__/ \___||___/
+##                                               |___/|_|
+## ======================================================================
+
 resource_types:
 - name: gcs-resource
   type: docker-image
   source:
     repository: frodenas/gcs-resource
+
+## ======================================================================
+##  _ __ ___  ___  ___  _   _ _ __ ___ ___  ___
+## | '__/ _ \/ __|/ _ \| | | | '__/ __/ _ \/ __|
+## | | |  __/\__ \ (_) | |_| | | | (_|  __/\__ \
+## |_|  \___||___/\___/ \__,_|_|  \___\___||___/
+## ======================================================================
+
 resources:
 - name: cf-deployment-develop
   type: git
@@ -312,10 +339,6 @@ resources:
   type: bosh-io-release
   source:
     repository: cloudfoundry/leadership-election-release
-- name: metric-store-release
-  type: bosh-io-release
-  source:
-    repository: cloudfoundry/metric-store-release
 - name: binary-buildpack-release-gcs
   type: gcs-resource
   source:
@@ -526,6 +549,16 @@ resources:
     start: 3:00 -0700
     stop: 3:30 -0700
     interval: 24h
+
+## ======================================================================
+##    _       _
+##   (_) ___ | |__  ___
+##   | |/ _ \| '_ \/ __|
+##   | | (_) | |_) \__ \
+##  _/ |\___/|_.__/|___/
+## |__/
+## ======================================================================
+
 jobs:
 - name: upload-stemcell
   public: true
@@ -693,13 +726,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-binary-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -772,13 +803,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-bosh-dns-aliases
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -869,13 +898,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-bpm
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -966,13 +993,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-capi
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1063,13 +1088,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-cf-networking
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1160,13 +1183,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-cf-smoke-tests
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1257,13 +1278,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-cf-syslog-drain
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1354,13 +1373,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-cflinuxfs2
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1451,13 +1468,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-cflinuxfs3
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1548,13 +1563,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-diego
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1645,13 +1658,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-dotnet-core-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1724,13 +1735,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-garden-runc
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1821,13 +1830,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-go-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1900,13 +1907,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-java-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -1979,13 +1984,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-log-cache
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2076,13 +2079,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-loggregator
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2173,13 +2174,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-loggregator-agent
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2270,13 +2269,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-nats
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2367,13 +2364,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-nginx-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2446,13 +2441,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-nodejs-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2525,13 +2518,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-php-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2604,13 +2595,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-python-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2683,13 +2672,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-pxc
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2780,13 +2767,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-r-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2859,13 +2844,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-routing
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -2956,13 +2939,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-ruby-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -3035,13 +3016,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-silk
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -3132,13 +3111,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-staticfile-buildpack
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -3211,13 +3188,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-statsd-injector
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -3308,13 +3283,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-uaa
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -3405,13 +3378,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-credhub
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -3502,13 +3473,11 @@ jobs:
       trigger: true
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - upload-stemcell
+      passed: [ upload-stemcell ]
   - task: update-release-cf-cli
     file: runtime-ci/tasks/update-single-manifest-release/task.yml
     input_mapping:
@@ -3600,8 +3569,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-backup-and-restore-sdk
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -3663,8 +3631,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-bits-service
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -3726,8 +3693,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-cf-app-sd
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -3789,8 +3755,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-haproxy
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -3818,7 +3783,8 @@ jobs:
       bbl-state: relint-envs
       cf-deployment: cf-deployment-develop
       ops-files: updated-ops-file
-      vars-files: relint-envs
+      vars-files: greengrass-env-director-state
+
     params:
       BBL_STATE_DIR: environments/test/greengrass/bbl-state
       DEPLOYMENT_NAME_SUFFIX: haproxy
@@ -3853,8 +3819,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-mapfs
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -3916,8 +3881,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-nfs-volume
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -3979,8 +3943,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-smb-volume
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4042,8 +4005,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-postgres
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4105,8 +4067,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-syslog
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4135,6 +4096,7 @@ jobs:
       cf-deployment: cf-deployment-develop
       ops-files: updated-ops-file
       vars-files: cf-deployment-develop
+
     params:
       BBL_STATE_DIR: environments/test/greengrass/bbl-state
       DEPLOYMENT_NAME_SUFFIX: syslog
@@ -4169,8 +4131,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-windows-syslog
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4198,7 +4159,8 @@ jobs:
       bbl-state: relint-envs
       cf-deployment: cf-deployment-develop
       ops-files: updated-ops-file
-      vars-files: relint-envs
+      vars-files: greengrass-env-director-state
+
     params:
       BBL_STATE_DIR: environments/test/greengrass/bbl-state
       DEPLOYMENT_NAME_SUFFIX: windows-syslog
@@ -4233,8 +4195,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-hwc-buildpack
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4296,8 +4257,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-windows-utilities
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4359,8 +4319,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-garden-windows
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4422,8 +4381,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-winc
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4485,8 +4443,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-windows1803fs
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4548,8 +4505,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-windows2016fs
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4611,8 +4567,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-node-exporter
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4674,8 +4629,7 @@ jobs:
     - get: stemcell
       params:
         tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
+      passed: [ update-stemcell-and-recompile-releases ]
   - task: update-release-leadership-election
     file: runtime-ci/tasks/update-single-opsfile-release/task.yml
     input_mapping:
@@ -4709,69 +4663,6 @@ jobs:
       DEPLOYMENT_NAME_SUFFIX: leadership-election
       SYSTEM_DOMAIN: greengrass.cf-app.com
   - task: commit-generated-manifest-and-ops-leadership-election
-    file: runtime-ci/tasks/commit-generated-manifest/task.yml
-    input_mapping:
-      repo: cf-deployment-develop
-      ops-file: updated-ops-file
-      manifest: cf-deployment-develop
-    params:
-      COMMIT_ALL_OPS_FILES: true
-  - put: cf-deployment-develop
-    params:
-      rebase: true
-      repository: updated-repo
-- name: update-metric-store
-  serial: true
-  public: true
-  build_logs_to_retain: 100
-  plan:
-  - aggregate:
-    - get: runtime-ci
-    - get: cf-deployment-develop
-    - get: cf-deployment-concourse-tasks
-    - get: relint-envs
-    - get: metric-store-release
-      trigger: true
-      params:
-        tarball: false
-    - get: stemcell
-      params:
-        tarball: false
-      passed:
-      - update-stemcell-and-recompile-releases
-  - task: update-release-metric-store
-    file: runtime-ci/tasks/update-single-opsfile-release/task.yml
-    input_mapping:
-      release: metric-store-release
-      original-ops-file: cf-deployment-develop
-    params:
-      RELEASE_NAME: metric-store
-  - task: bosh-upload-stemcell
-    file: cf-deployment-concourse-tasks/bosh-upload-stemcells/task.yml
-    input_mapping:
-      bbl-state: relint-envs
-      cf-deployment: cf-deployment-develop
-      ops-files: cf-deployment-develop
-    params:
-      BBL_STATE_DIR: environments/test/greengrass/bbl-state
-      INFRASTRUCTURE: google
-      OPS_FILES: |
-        operations/windows2012R2-cell.yml
-        operations/windows2016-cell.yml
-        operations/windows1803-cell.yml
-        operations/windows2019-cell.yml
-  - task: bosh-dry-run-metric-store
-    file: runtime-ci/tasks/bosh-dry-run-with-all-ops/task.yml
-    input_mapping:
-      bbl-state: relint-envs
-      cf-deployment: cf-deployment-develop
-      ops-files: updated-ops-file
-      vars-files: relint-envs
-    params:
-      BBL_STATE_DIR: environments/test/greengrass/bbl-state
-      DEPLOYMENT_NAME_SUFFIX: metric-store
-      SYSTEM_DOMAIN: greengrass.cf-app.com
-  - task: commit-generated-manifest-and-ops-metric-store
     file: runtime-ci/tasks/commit-generated-manifest/task.yml
     input_mapping:
       repo: cf-deployment-develop
@@ -4879,6 +4770,7 @@ jobs:
     params:
       rebase: true
       repository: updated-repo
+
 - name: update-stemcell-and-recompile-releases
   public: true
   serial_groups:
@@ -5851,6 +5743,7 @@ jobs:
     params:
       rebase: true
       repository: updated-repo
+
 - name: update-windows-2016-offline-releases
   serial: true
   public: true
@@ -5890,6 +5783,7 @@ jobs:
     params:
       rebase: true
       repository: updated-repo
+
 - name: setup-infrastructure-compilation
   serial: true
   public: true
@@ -5927,6 +5821,7 @@ jobs:
     params:
       BBL_STATE_DIR: environments/test/greengrass/bbl-state
       OPS_FILE_PATH: environments/test/greengrass/add-credhub-lb.yml
+
 - name: destroy-infrastructure-compilation
   serial: true
   public: true
@@ -5954,6 +5849,7 @@ jobs:
       params:
         repository: updated-bbl-state
         rebase: true
+
 - name: run-bosh-cleanup-compilation
   serial: true
   public: true
@@ -5972,22 +5868,3 @@ jobs:
         bbl-state: relint-envs
       params:
         BBL_STATE_DIR: environments/test/greengrass/bbl-state
-    - task: upload-bosh-dns-release
-      config:
-        platform: linux
-        image_resource:
-          type: docker-image
-          source:
-            repository: relintdockerhubpushbot/cf-deployment-concourse-tasks
-            tag: latest
-        inputs:
-        - name: relint-envs
-        run:
-          path: /bin/bash
-          args:
-          - -c
-          - |
-            #!/bin/bash
-            cd relint-envs/environments/test/greengrass/bbl-state
-            eval "$(bbl print-env)"
-            bosh upload-release $(bosh int <(bosh runtime-config --name=dns) --path /releases/name=bosh-dns/url)
